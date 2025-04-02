@@ -2,12 +2,10 @@
     "speed":{
         "topic":"/novatel/oem7/bestvel",
         "cols":[
-            "time",
             "ver_speed",
             "hor_speed"
         ],
         "fields":[
-            "t",
             "msg.ver_speed",
             "msg.hor_speed"
         ]
@@ -15,13 +13,11 @@
     "pos":{
         "topic":"/novatel/oem7/bestpos",
         "cols":[
-            "time",
             "lat",
             "lon",
             "hgt"
         ],
         "fields":[
-            "t",
             "msg.lat",
             "msg.lon",
             "msg.hgt"
@@ -30,46 +26,42 @@
     "heading":{
         "topic":"/novatel/oem7/heading2",
         "cols":[
-            "time",
             "heading"
         ],
         "fields":[
-            "t",
             "msg.heading"
         ]
     },
     "lidarObj":{
-        "topic":"/detection/lidar_detector/objects_markers",
+        "topic":"/detection/lidar_objects",
         "cols":[
-            "time",
             "id",
             "x",
             "y",
             "z",
-            "label"
+            "label",
+            "score"
         ],
         "fields":[
-            "t",
-            "marker.id",
-            "marker.pose.position.x",
-            "marker.pose.position.y",
-            "marker.pose.position.z",
-            "marker.text"
+            "obj.id",
+            "obj.pose.position.x",
+            "obj.pose.position.y",
+            "obj.pose.position.z",
+            "obj.label",
+            "obj.score"
         ],
         "arrays":{
-            "field":"msg.markers",
-            "ref": "marker"
+            "field":"msg.objects",
+            "ref": "obj"
         }
     },
     "cam_mono":{
         "topic":"/cam_mono/elapsed_time",
         "cols":[
-            "time",
             "seq",
             "elapsed_time"
         ],
         "fields":[
-            "t",
             "msg.header.seq",
             "msg.elapsed_time"
         ]
@@ -77,12 +69,10 @@
     "cam_zed2i":{
         "topic":"/cam_zed2i/elapsed_time",
         "cols":[
-            "time",
             "seq",
             "elapsed_time"
         ],
         "fields":[
-            "t",
             "msg.header.seq",
             "msg.elapsed_time"
         ]
@@ -90,7 +80,6 @@
     "gps":{
         "topic":"/gps/gps",
         "cols":[
-            "time",
             "satellites_used",
             "satellites_visible",
             "latitude",
@@ -101,7 +90,6 @@
             "roll"
         ],
         "fields":[
-            "t",
             "msg.status.satellites_used",
             "msg.status.satellites_visible",
             "msg.latitude",

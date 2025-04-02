@@ -19,7 +19,7 @@ def get_nested_attr(obj, attr_path, ignore_first=True):
             return None
     return obj
 
-BAG_DIR = r"/media/moji/Main/ADS/3-19-2025/Loop 3"
+BAG_DIR = r"/media/moji/Main/ADS/3_10_25/"
 
 bag_lst = [bag for bag in os.listdir(BAG_DIR) if bag.endswith('.bag')]
 if not bag_lst:
@@ -42,17 +42,18 @@ for ibag, bag_file in enumerate(bag_lst):
         FILE_NAME = os.path.join(TARGET_DIR, '.'.join([bag_file, topic]))
         BAG_NAME = os.path.join(BAG_DIR, bag_file)
         with open(FILE_NAME, 'w') as f, rosbag.Bag(BAG_NAME) as bag:
+            f.write('time_sec,time_nsec,')
             f.write(','.join(tmp['cols'])+'\n')
             if "arrays" in tmp.keys():
                 for topic, msg, t in bag.read_messages(topics=[tmp['topic']]):
                     for attr in get_nested_attr(msg, tmp["arrays"]["field"]) or []:
-                        row = [get_nested_attr(attr, fld) for fld in tmp["fields"][1:]]
-                        row.insert(0, t)
+                        row = [get_nested_attr(attr, fld) for fld in tmp["fields"]]
+                        f.write('{},{},'.format(t.secs, t.nsecs))
                         f.write(','.join(str(i) for i in row))
                         f.write('\n')
             else:
                 for topic, msg, t in bag.read_messages(topics=[tmp['topic']]):
-                    row = [get_nested_attr(msg, fld) for fld in tmp["fields"][1:]]
-                    row.insert(0, t)
+                    row = [get_nested_attr(msg, fld) for fld in tmp["fields"]]
+                    f.write('{},{},'.format(t.secs, t.nsecs))
                     f.write(','.join(str(i) for i in row))
                     f.write('\n')
