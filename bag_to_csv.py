@@ -122,7 +122,7 @@ def gen_csv_task(task, lock):
     BAG_NAME = os.path.join(bag_dir, bag_name)
 
     with lock:
-        print('Start processing:({},{},{})'.format(bag_name, config_key, worker), end='\n')
+        print('[START] Bag: {} | Topic: {}'.format(bag_name, config_key))
 
     if os.path.exists(FILE_NAME):
         if overwrite == 'Always':
@@ -151,9 +151,9 @@ def gen_csv_task(task, lock):
                 f.write('\n')
 
     with lock:
-        print('Finish processing:({},{},{})'.format(bag_name, config_key, worker), end='\n')
+        print('[DONE] Bag: {} | Topic: {}'.format(bag_name, config_key))
 
-        
+
     return
 
 def gen_csv_multiprocessing(BAG_DIR, config_file=default_config_path, overwrite='Always'):
