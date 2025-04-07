@@ -95,6 +95,7 @@ def gen_csv(BAG_DIR, config_file=default_config_path, overwrite='Always'):
                         print('Skip topic: {}'.format(topic))
                         continue
             with open(FILE_NAME, 'w') as f, rosbag.Bag(BAG_NAME) as bag:
+                f.write('time,')
                 f.write(','.join(tmp['cols'])+'\n')
                 if "arrays" in tmp.keys():
                     for topic, msg, t in bag.read_messages(topics=[tmp['topic']]):
@@ -106,7 +107,7 @@ def gen_csv(BAG_DIR, config_file=default_config_path, overwrite='Always'):
                 else:
                     for topic, msg, t in bag.read_messages(topics=[tmp['topic']]):
                         row = [get_nested_attr(msg, fld) for fld in tmp["fields"][1:]]
-                        row.insert(0, t)
+                        f.write('{},'.format(t))
                         f.write(','.join(str(i) for i in row))
                         f.write('\n')
 
