@@ -76,42 +76,40 @@ def gen_csv(BAG_DIR, config_file=default_config_path, overwrite='Always'):
     print('Use -h for help')
     print('Start converting rosbags to csv...')
 
-    
     for ibag, bag_file in enumerate(bag_lst):
-        BAG_NAME = os.path.join(BAG_DIR, bag_file)
-        with rosbag.Bag(BAG_NAME) as bag:
-            print(' ({}/{})Start processing:{}'.format(ibag+1, len(bag_lst), bag_file), end='\n')
-            for itopic, topic in enumerate(config.keys()):
-                print(' ({}/{})Processing topic: {}    \r'.format(itopic+1, len(config.keys()), topic), end='')
-                sys.stdout.flush()
-                tmp = config[topic]
-                FILE_NAME = os.path.join(TARGET_DIR, '.'.join([bag_file, topic]))
-                if os.path.exists(FILE_NAME):
-                    if overwrite == 'Always':
-                        pass
-                    elif overwrite == 'Never':
+        print(' ({}/{})Start processing:{}'.format(ibag+1, len(bag_lst), bag_file), end='\n')
+        for itopic, topic in enumerate(config.keys()):
+            print(' ({}/{})Processing topic: {}    \r'.format(itopic+1, len(config.keys()), topic), end='')
+            sys.stdout.flush()
+            tmp = config[topic]
+            FILE_NAME = os.path.join(TARGET_DIR, '.'.join([bag_file, topic]))
+            BAG_NAME = os.path.join(BAG_DIR, bag_file)
+            if os.path.exists(FILE_NAME):
+                if overwrite == 'Always':
+                    pass
+                elif overwrite == 'Never':
+                    continue
+                elif overwrite == 'Ask':
+                    print('File {} exists! Do you want to overwrite? (y/n) (Default: n)'.format(FILE_NAME))
+                    if input() != 'y':
+                        print('Skip topic: {}'.format(topic))
                         continue
-                    elif overwrite == 'Ask':
-                        print('File {} exists! Do you want to overwrite? (y/n) (Default: n)'.format(FILE_NAME))
-                        if input() != 'y':
-                            print('Skip topic: {}'.format(topic))
-                            continue
-                with open(FILE_NAME, 'w') as f:
-                    f.write('time,')
-                    f.write(','.join(tmp['cols'])+'\n')
-                    if "arrays" in tmp.keys():
-                        for topic, msg, t in bag.read_messages(topics=[tmp['topic']]):
-                            for attr in get_nested_attr(msg, tmp["arrays"]["field"]) or []:
-                                row = [get_nested_attr(attr, fld) for fld in tmp["fields"]]
-                                row.insert(0, t)
-                                f.write(','.join(str(i) for i in row))
-                                f.write('\n')
-                    else:
-                        for topic, msg, t in bag.read_messages(topics=[tmp['topic']]):
-                            row = [get_nested_attr(msg, fld) for fld in tmp["fields"]]
-                            f.write('{},'.format(t))
+            with open(FILE_NAME, 'w') as f, rosbag.Bag(BAG_NAME) as bag:
+                f.write('time,')
+                f.write(','.join(tmp['cols'])+'\n')
+                if "arrays" in tmp.keys():
+                    for topic, msg, t in bag.read_messages(topics=[tmp['topic']]):
+                        for attr in get_nested_attr(msg, tmp["arrays"]["field"]) or []:
+                            row = [get_nested_attr(attr, fld) for fld in tmp["fields"]]
+                            row.insert(0, t)
                             f.write(','.join(str(i) for i in row))
                             f.write('\n')
+                else:
+                    for topic, msg, t in bag.read_messages(topics=[tmp['topic']]):
+                        row = [get_nested_attr(msg, fld) for fld in tmp["fields"]]
+                        f.write('{},'.format(t))
+                        f.write(','.join(str(i) for i in row))
+                        f.write('\n')
 
 
 if __name__ == '__main__':
