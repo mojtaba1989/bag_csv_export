@@ -76,15 +76,16 @@ def gen_csv(BAG_DIR, config_file=default_config_path, overwrite='Always'):
     print('Use -h for help')
     print('Start converting rosbags to csv...')
 
-    with rosbag.Bag(BAG_NAME) as bag:
-        for ibag, bag_file in enumerate(bag_lst):
+    
+    for ibag, bag_file in enumerate(bag_lst):
+        BAG_NAME = os.path.join(BAG_DIR, bag_file)
+        with rosbag.Bag(BAG_NAME) as bag:
             print(' ({}/{})Start processing:{}'.format(ibag+1, len(bag_lst), bag_file), end='\n')
             for itopic, topic in enumerate(config.keys()):
                 print(' ({}/{})Processing topic: {}    \r'.format(itopic+1, len(config.keys()), topic), end='')
                 sys.stdout.flush()
                 tmp = config[topic]
                 FILE_NAME = os.path.join(TARGET_DIR, '.'.join([bag_file, topic]))
-                BAG_NAME = os.path.join(BAG_DIR, bag_file)
                 if os.path.exists(FILE_NAME):
                     if overwrite == 'Always':
                         pass
