@@ -1,13 +1,11 @@
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 import os
 import json
 import rosbag
 import numpy as np
-import rospy
 import sys
 import argparse
 import multiprocessing
-from functools import partial
 
 file_path = os.path.abspath(__file__)
 dir_path = os.path.dirname(file_path)
@@ -114,24 +112,25 @@ def gen_csv(BAG_DIR, config_file=default_config_path, overwrite='Always'):
                         f.write('\n')
 
 
-def gen_csv_task(task, lock):
-    bag_name, bag_dir,  target_dir, config, config_key, overwrite, worker = task
+def gen_csv_task(args):
+    worker_id, task, lock = args
+    bag_name, bag_dir,  target_dir, config, config_key, overwrite = task
     
-
     FILE_NAME = os.path.join(target_dir, '.'.join([bag_name, config_key]))
     BAG_NAME = os.path.join(bag_dir, bag_name)
 
-    with lock:
-        print('[START] Bag: {} | Topic: {}'.format(bag_name, config_key))
+    def print_status(msg):
+        with lock:
+            sys.stdout.write("\033[{};0H".format(worker_id+1))  # Move to line
+            sys.stdout.write(msg.ljust(100))  # Overwrite previous content
+            sys.stdout.flush()
+
+    print_status("[Worker {}] {} | {}".format(worker_id, config_key, bag_name))
 
     if os.path.exists(FILE_NAME):
         if overwrite == 'Always':
             pass
-        elif overwrite == 'Never':
-            return
-        elif overwrite == 'Ask':
-            print('This option is not available in multiprocessing mode!')
-            print('Skip topic: {}'.format(config_key))
+        elif overwrite == 'Never' or overwrite == 'Ask':
             return
     with open(FILE_NAME, 'w') as f, rosbag.Bag(BAG_NAME) as bag:
         f.write('time,')
@@ -150,13 +149,13 @@ def gen_csv_task(task, lock):
                 f.write(','.join(str(i) for i in row))
                 f.write('\n')
 
-    with lock:
-        print('[DONE] Bag: {} | Topic: {}'.format(bag_name, config_key))
+    print_status("[Worker {}] Done {} | {}".format(worker_id, config_key, bag_name))
 
 
     return
 
 def gen_csv_multiprocessing(BAG_DIR, config_file=default_config_path, overwrite='Always'):
+    from itertools import cycle
     TARGET_DIR = os.path.join(BAG_DIR, 'csv')
     print('Using bag folder: {}'.format(BAG_DIR))
     print('Using target directory: {}'.format(TARGET_DIR))
@@ -170,22 +169,36 @@ def gen_csv_multiprocessing(BAG_DIR, config_file=default_config_path, overwrite=
     print('Selected overwrite option: {}'.format(overwrite))
     print('Number of cores: {}'.format(multiprocessing.cpu_count()))
     print('Use -h for help')
-    print('Start converting rosbags to csv...')
 
     bag_lst = [bag for bag in os.listdir(BAG_DIR) if bag.endswith('.bag')]
     tasks = []
     for bag_name in bag_lst:
         for config_key in config.keys():
-            tasks.append((bag_name, BAG_DIR, TARGET_DIR, config[config_key], config_key, overwrite, None))
+            tasks.append((bag_name, BAG_DIR, TARGET_DIR, config[config_key], config_key, overwrite))
 
-    lock = multiprocessing.Manager().Lock()
-    worker_fn = partial(gen_csv_task, lock=lock)
-    with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
-        pool.map(worker_fn, tasks)
+    print("Number of tasks: {}".format(len(tasks)))
+
+    manager = multiprocessing.Manager()
+    lock = manager.Lock()
+    print("\033[2J", end='')
+
+    task_queue = [(worker_id, task, lock) for worker_id, task in zip(cycle(range(multiprocessing.cpu_count())), tasks)]
+    # with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
+    #     pool.map(gen_csv_task, task_queue)
+
+    pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    try:
+        pool.map(gen_csv_task, task_queue)
         pool.close()
         pool.join()
-    print('Finish converting rosbags to csv...')
-    return
+    except KeyboardInterrupt:
+        print("\nAll tasks interrupted.\n")
+        pool.terminate()
+        pool.join()
+        sys.exit(0)
+        
+
+    print("\nAll tasks completed.\n")
     
 
 
