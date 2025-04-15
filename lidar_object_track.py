@@ -1,10 +1,26 @@
+import sys
+if sys.version_info < (3, 10):
+    raise Exception("Python 3.10 or newer required")
+
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 import pandas as pd
 import os
 import argparse
 import time as mTime
+import json
+
+def convert_numpy(obj):
+    if isinstance(obj, dict):
+        return {k: convert_numpy(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy(i) for i in obj]
+    elif isinstance(obj, (np.integer, np.int64)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64)):
+        return float(obj)
+    else:
+        return obj
 
 class trackObj:
     def __init__(self):
@@ -17,18 +33,16 @@ class trackObj:
         self.history = []
         self.active = False
         self.matched = False
-        self.score = 0
     
-    def add(self, x, y, time, score):
+    def add(self, x, y, time):
         self.x = x
         self.y = y
         self.time = time
         self.history.append([x, y, time])
         self.matched = True
-        self.score = np.max([score, self.score])
     
     def addObj(self, obj):
-        self.add(obj.x, obj.y, obj.time, obj.score)
+        self.add(obj.x, obj.y, obj.time)
     
     def dist(self, x, y):
         return self.id, np.sqrt((self.x - x)**2 + (self.y - y)**2)
@@ -36,25 +50,34 @@ class trackObj:
     def distObj(self, obj):
         return self.id, np.sqrt((self.x - obj.x)**2 + (self.y - obj.y)**2)
     
+    def plot(self):
+        x = np.array([i[0] for i in self.history])
+        y = np.array([i[1] for i in self.history])
+        plt.scatter(-y, x, s=1, label=f'{self.id}_{self.cat}')
+
 class newObj:
     def __init__(self):
         self.x = None
         self.y = None
         self.time = None
         self.category = None
-        self.score = 0
 
 class newObjList:
     def __init__(self):
         self.newObjList = []
-    
-    def add(self, x, y, time, category, score):
+    def add(self, x, y, time, category):
         self.newObjList.append(newObj())
         self.newObjList[-1].x = x
         self.newObjList[-1].y = y
         self.newObjList[-1].time = time
-        self.newObjList[-1].category = category
-        self.newObjList[-1].score = score
+        if 'car' in category:
+            self.newObjList[-1].category = 'car'
+        elif 'pedestrian' in category:
+            self.newObjList[-1].category = 'pedestrian'
+        elif 'bike' in category:
+            self.newObjList[-1].category = 'bike'
+        else:
+            self.newObjList[-1].category = 'other'
     
     def remove_FP(self, xlim=3, ylim=2):
         self.newObjList = [obj for obj in self.newObjList if not(abs(obj.x) <= xlim and abs(obj.y) <= ylim)]
@@ -75,25 +98,6 @@ class newObjList:
     def clean(self, xlim=3, ylim=2, min_dist=2):
         self.remove_FP(xlim, ylim)
         self.cleanOther(min_dist)
-    
-    def plot(self):
-        L = 2.08
-        W = 5.82
-        rectangle = patches.Rectangle((-L/2, -W/2), L, W, edgecolor='blue', facecolor='blue', linewidth=0, label="Ego Vehicle")
-        car = [obj for obj in self.newObjList if obj.category == 'car']
-        ped = [obj for obj in self.newObjList if obj.category == 'pedestrian']
-        bike = [obj for obj in self.newObjList if obj.category == 'bike']
-        other = [obj for obj in self.newObjList if obj.category == 'other']
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.plot([-obj.y for obj in car], [obj.x for obj in car], 'ro', label='car')
-        ax.plot([-obj.y for obj in ped], [obj.x for obj in ped], 'bo', label='pedestrian')
-        ax.plot([-obj.y for obj in bike], [obj.x for obj in bike], 'go', label='bike')
-        ax.plot([-obj.y for obj in other], [obj.x for obj in other], 'gx', label='other')
-        
-        ax.add_patch(rectangle)
-        ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=3)
-        ax.set_xlim(-60, 60)
-        ax.set_ylim(-60, 60)
 
 
 def process_lidar_data(CSV_FILE, min_dist=2, max_inactive=2, xlim=3, ylim=2):
@@ -102,20 +106,19 @@ def process_lidar_data(CSV_FILE, min_dist=2, max_inactive=2, xlim=3, ylim=2):
         print('CSV file not found')
         return
     lidar_data = pd.read_csv(CSV_FILE)
-    time = []
-    for t, nt in zip(lidar_data['time_sec'], lidar_data['time_nsec']):
-        time.append(t + nt/1e9)
-    lidar_data['time'] = time
+    lidar_data = lidar_data.dropna()
+    lidar_data = lidar_data.reset_index(drop=True)
+
     print('Cleaning lidar data...')
     time = np.unique(lidar_data['time'])
     tracking = []
     archived = []
     id_ = 0
-    duration = (time[-1]-time[0])
+    duration = (time[-1]-time[0])/1e9
     print(f'Recording duration: {duration}s')
     start_time = mTime.time()
     for t in time:
-        print(f'{(t-time[0]):.2f}/{duration:.2f}', end='\r', flush=True)
+        print(f'{(t-time[0])/1e9:.2f}/{duration:.2f}', end='\r', flush=True)
         for obj in tracking:
             obj.matched = False
             if t - obj.time > max_inactive:
@@ -124,7 +127,7 @@ def process_lidar_data(CSV_FILE, min_dist=2, max_inactive=2, xlim=3, ylim=2):
         df = df.reset_index(drop=True)
         new = newObjList()
         for i in range(len(df)):
-            new.add(df.loc[i, 'x'], df.loc[i, 'y'], df.loc[i, 'time'], df.loc[i, 'label'], df.loc[i, 'score'])
+            new.add(df.loc[i, 'x'], df.loc[i, 'y'], df.loc[i, 'time'], df.loc[i, 'label'])
         new.clean(xlim=xlim, ylim=ylim, min_dist=min_dist)
         for nobj in new.newObjList:
             dist = np.array([obj.distObj(nobj)[1] for obj in tracking if obj.active and not obj.matched])
@@ -155,18 +158,14 @@ def process_lidar_data(CSV_FILE, min_dist=2, max_inactive=2, xlim=3, ylim=2):
     
     print(f'Finished processing lidar data [{mTime.time()-start_time:.2f}s]')
     print(f'Tracked {len(archived)} objects')
+    print('Saving into JSON file...')
+    jdisct = {}
+    for obj in archived:
+        jdisct[obj.id] = obj.__dict__
+    jdisct = convert_numpy(jdisct)
+    with open(CSV_FILE + '.json', 'w') as f:
+        json.dump(jdisct, f, indent=4)
     print('Saving into CSV file...')
-    with open(CSV_FILE + '.processed', 'w') as f:
-        f.write('time_sec,time_nsec,id,x,y,z,label,score,time\n')
-        for idx, obj in enumerate(archived):
-            print(f'write {idx}/{len(archived)}', end='\r', flush=True)
-            for h in obj.history:
-                f.write(f'{int(h[2])},{int((h[2]-int(h[2]))*1e9)},{obj.id},{h[0]},{h[1]},-1,{obj.cat},{obj.score},{h[2]}\n')
-    print('Sorting and re-indexing csv file...')
-    data = pd.read_csv(CSV_FILE+'.process')
-    data = data.sort_values(['time_sec', 'time_nsec'])
-    data.to_csv(CSV_FILE+'.process', index=False)
-    print(f'Result saved to {CSV_FILE}.processed')
     return
 
 if __name__ == "__main__":
