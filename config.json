@@ -33,25 +33,23 @@
         ]
     },
     "lidarObj":{
-        "topic":"/detection/lidar_objects",
+        "topic":"/detection/lidar_detector/objects_markers",
         "cols":[
             "id",
             "x",
             "y",
             "z",
-            "label",
-            "score"
+            "label"
         ],
         "fields":[
             "obj.id",
             "obj.pose.position.x",
             "obj.pose.position.y",
             "obj.pose.position.z",
-            "obj.label",
-            "obj.score"
-        ],
+            "obj.text"
+            ],
         "arrays":{
-            "field":"msg.objects",
+            "field":"msg.markers",
             "ref": "obj"
         }
     },

@@ -14,11 +14,14 @@ def process_video(input_file, crop_side, rotate, save_frames=False):
 
     # Determine output filename
     base_name, ext = os.path.splitext(input_file)
-    output_file = f"{base_name}_{'rotated_' if rotate else ''}{crop_side if crop_side == 'left' or crop_side == 'right' else ''}.mp4"
+    output_file = f"{base_name}{'_rotated' if rotate else ''}{'_' + crop_side if crop_side == 'left' or crop_side == 'right' else ''}.mp4"
+
 
     if save_frames:
         parent_dir = os.path.dirname(input_file)
         output_dir = os.path.join(parent_dir, 'frames')
+        file_name = os.path.basename(output_file)
+        print(f'Saving frames to {output_dir}')
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
@@ -45,7 +48,7 @@ def process_video(input_file, crop_side, rotate, save_frames=False):
             frame = frame[:, width // 2:]  # Right half
 
         if save_frames:
-            frame_name = os.path.join(output_dir, f"{i}_" + output_file[:-4]+".jpg")
+            frame_name = os.path.join(output_dir, f"{i}_" + file_name[:-4]+".jpg")
             cv2.imwrite(frame_name, frame)
         print(f'Processing frame {i}/{number_of_frames}', end='\r', flush=True)
         i+=1
@@ -65,7 +68,7 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--left", action="store_true", help="Crop left half")
     parser.add_argument("-r", "--right", action="store_true", help="Crop right half")
     parser.add_argument("-rotate", action="store_true", help="Rotate 180 degrees")
-    parser.add_argument("--save-frames", action="store_true", help="Save frames")
+    parser.add_argument("-s", "--save-frames", action="store_true", help="Save frames")
 
     args = parser.parse_args()
 
